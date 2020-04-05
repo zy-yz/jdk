@@ -232,7 +232,7 @@ public class HashMap<K,V> extends AbstractMap<K,V>
      */
 
     /**
-     * The default initial capacity - MUST be a power of two.
+     * The default initial capacity - MUST be a power of two.1
      */
     static final int DEFAULT_INITIAL_CAPACITY = 1 << 4; // aka 16
 
