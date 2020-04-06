@@ -363,8 +363,11 @@ public abstract class AbstractCollection<E> implements Collection<E> {
     public boolean removeAll(Collection<?> c) {
         Objects.requireNonNull(c);
         boolean modified = false;
+        //获得迭代器
         Iterator<?> it = iterator();
+        //通过迭代器遍历
         while (it.hasNext()) {
+            //如果c中存在该元素，则进行移除
             if (c.contains(it.next())) {
                 it.remove();
                 modified = true;
@@ -394,6 +397,9 @@ public abstract class AbstractCollection<E> implements Collection<E> {
      *
      * @see #remove(Object)
      * @see #contains(Object)
+     *
+     * 求 LinkedList 和指定多个元素的交集
+     * 移除不在 c 中的元素
      */
     public boolean retainAll(Collection<?> c) {
         Objects.requireNonNull(c);
