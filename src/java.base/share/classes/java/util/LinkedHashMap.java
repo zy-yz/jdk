@@ -159,6 +159,15 @@ import java.io.IOException;
  * @see     TreeMap
  * @see     Hashtable
  * @since   1.4
+ *
+ *
+ *
+ * LinkedHashMap 是 HashMap 的子类，增加了顺序访问的特性。
+ * 【默认】当 accessOrder = false 时，按照 key-value 的插入顺序进行访问。
+ * 当 accessOrder = true 时，按照 key-value 的读取顺序进行访问。
+ * LinkedHashMap 的顺序特性，通过内部的双向链表实现，所以我们把它看成是 LinkedList + LinkedHashMap 的组合。
+ * LinkedHashMap 通过重写 HashMap 提供的回调方法，从而实现其对顺序的特性的处理。同时，因为 LinkedHashMap 的顺序特性，需要重写 #keysToArray(T[] a) 等遍历相关的方法。
+ * LinkedHashMap 可以方便实现 LRU 算法的缓存，
  */
 public class LinkedHashMap<K,V>
     extends HashMap<K,V>
@@ -190,7 +199,8 @@ public class LinkedHashMap<K,V>
      * HashMap.Node subclass for normal LinkedHashMap entries.
      */
     static class Entry<K,V> extends HashMap.Node<K,V> {
-        Entry<K,V> before, after;
+        Entry<K,V> before, after;//before 属性，指向前一个节点。after 属性，指向后一个节点。
+        //通过 before + after 属性，我们就可以形成一个以 Entry 为节点的链表
         Entry(int hash, K key, V value, Node<K,V> next) {
             super(hash, key, value, next);
         }
@@ -221,10 +231,14 @@ public class LinkedHashMap<K,V>
 
     // link at the end of list
     private void linkNodeLast(LinkedHashMap.Entry<K,V> p) {
+        // 记录原尾节点到 last 中
         LinkedHashMap.Entry<K,V> last = tail;
+        // 设置 tail 指向 p ，变更新的尾节点
         tail = p;
+        // 如果原尾节点 last 为空，说明 head 也为空，所以 head 也指向 p
         if (last == null)
             head = p;
+            // last <=> p ，相互指向
         else {
             p.before = last;
             last.after = p;
@@ -254,8 +268,10 @@ public class LinkedHashMap<K,V>
     }
 
     Node<K,V> newNode(int hash, K key, V value, Node<K,V> e) {
+        //创建Entry节点
         LinkedHashMap.Entry<K,V> p =
             new LinkedHashMap.Entry<>(hash, key, value, e);
+        //添加到结尾
         linkNodeLast(p);
         return p;
     }
@@ -282,13 +298,18 @@ public class LinkedHashMap<K,V>
     }
 
     void afterNodeRemoval(Node<K,V> e) { // unlink
+        // 将 e 赋值给 p 【因为要 Node 类型转换成 Entry 类型】
+        // 同时 b、a 分别是 e 的前后节点
         LinkedHashMap.Entry<K,V> p =
             (LinkedHashMap.Entry<K,V>)e, b = p.before, a = p.after;
+        // 将 p 从链表中移除
         p.before = p.after = null;
+        // 处理 b 的下一个节点指向 a
         if (b == null)
             head = a;
         else
             b.after = a;
+        // 处理 a 的前一个节点指向 b
         if (a == null)
             tail = b;
         else
@@ -297,7 +318,10 @@ public class LinkedHashMap<K,V>
 
     void afterNodeInsertion(boolean evict) { // possibly remove eldest
         LinkedHashMap.Entry<K,V> first;
+        // first = head 记录当前头节点。因为移除从头开始，最老
+        // <1> removeEldestEntry(first) 判断是否满足移除最老节点
         if (evict && (first = head) != null && removeEldestEntry(first)) {
+            // <2> 移除指定节点
             K key = first.key;
             removeNode(hash(key), key, null, false, true);
         }
@@ -305,24 +329,33 @@ public class LinkedHashMap<K,V>
 
     void afterNodeAccess(Node<K,V> e) { // move node to last
         LinkedHashMap.Entry<K,V> last;
+        // accessOrder 判断必须是满足按访问顺序。
+        // (last = tail) != e 将 tail 赋值给 last ，并且判断是否 e 已经是队尾。如果是队尾，就不用处理了。
         if (accessOrder && (last = tail) != e) {
+            // 将 e 赋值给 p 【因为要 Node 类型转换成 Entry 类型】
+            // 同时 b、a 分别是 e 的前后节点
             LinkedHashMap.Entry<K,V> p =
                 (LinkedHashMap.Entry<K,V>)e, b = p.before, a = p.after;
+            // 第一步，将 p 从链表中移除
             p.after = null;
+            // 处理 b 的下一个节点指向 a
             if (b == null)
                 head = a;
             else
                 b.after = a;
+            // 处理 a 的前一个节点指向 b
             if (a != null)
                 a.before = b;
             else
                 last = b;
+            // 第二步，将 p 添加到链表的尾巴。实际这里的代码，和 linkNodeLast 是一致的。
             if (last == null)
                 head = p;
             else {
                 p.before = last;
                 last.after = p;
             }
+            // tail 指向 p ，实际就是 e 。
             tail = p;
             ++modCount;
         }
@@ -437,9 +470,11 @@ public class LinkedHashMap<K,V>
      * distinguish these two cases.
      */
     public V get(Object key) {
+        // 获得 key 对应的 Node
         Node<K,V> e;
         if ((e = getNode(hash(key), key)) == null)
             return null;
+        // 如果访问到，回调节点被访问
         if (accessOrder)
             afterNodeAccess(e);
         return e.value;
@@ -505,6 +540,8 @@ public class LinkedHashMap<K,V>
      *           entry, the eldest entry is also the newest.
      * @return   {@code true} if the eldest entry should be removed
      *           from the map; {@code false} if it should be retained.
+     *
+     *           判断是否移除最老节点
      */
     protected boolean removeEldestEntry(Map.Entry<K,V> eldest) {
         return false;
